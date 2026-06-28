@@ -6,10 +6,7 @@ import argparse
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from functions.get_files_info import schema_get_files_info
-from functions.get_file_content import schema_get_file_content
-from functions.run_python_file import schema_run_python_file
-from functions.write_file import schema_write_file
+from call_function import get_available_functions, call_function
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -25,17 +22,6 @@ def get_args():
     parser.add_argument("prompt")
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()
-
-
-def get_available_functions():
-    return types.Tool(
-        function_declarations=[
-            schema_get_files_info,
-            schema_get_file_content,
-            schema_run_python_file,
-            schema_write_file,
-        ]
-    )
 
 
 def get_system_prompt():
@@ -71,8 +57,18 @@ def main():
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
         print(f"User prompt: {args.prompt}")
     if response.function_calls:
+        function_results = []
         for func in response.function_calls:
-            print(f"Calling function: {func.name}({func.args})")
+            function_call_result: types.Content = call_function(func, args.verbose)
+            if not function_call_result.parts:
+                raise Exception("Function call result has no parts")
+            if not function_call_result.parts[0].function_response:
+                raise Exception("Function call result has no function response")
+            if not function_call_result.parts[0].function_response.response:
+                raise Exception("Function call result has no function response.response")
+            function_results.append(function_call_result.parts[0])
+            if (args.verbose):
+                print(f"-> {function_call_result.parts[0].function_response.response}")
     else:
         print(response.text)
 
