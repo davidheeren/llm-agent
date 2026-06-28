@@ -1,4 +1,7 @@
+#!/usr/bin/env -S uv run --script
+
 from functions.run_python_file import run_python_file
+from functions.get_files_info import get_files_info
 
 
 def test():
