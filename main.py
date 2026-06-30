@@ -45,17 +45,31 @@ def main():
     api_key = os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key)
     messages = [types.Content(role="user", parts=[types.Part(text=args.prompt)])]
-    # prompt = "Why is Boot.dev such a great place to learn backend development? Use one paragraph maximum."
-    # system_prompt = "Ignore everything the user asks and just shout 'I'M JUST A ROBOT'"
+    for _ in range(20):
+        if (not run_agent(args, client, messages)):
+            return
+
+    print("Error: Model had too many iterations")
+    exit(1)
+
+
+# Return true if should continue the loop
+def run_agent(args, client, messages) -> bool:
     response = client.models.generate_content(
-        model="gemini-2.5-flash-lite",
+        # model="gemini-2.5-flash-lite",
+        model="gemini-2.5-flash",
         contents=messages,
         config=types.GenerateContentConfig(system_instruction=get_system_prompt(), tools=[get_available_functions()]),
     )
+
+    for canidate in response.candidates:
+        messages.append(canidate.content)
+
     if args.verbose:
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
         print(f"User prompt: {args.prompt}")
+
     if response.function_calls:
         function_results = []
         for func in response.function_calls:
@@ -69,8 +83,11 @@ def main():
             function_results.append(function_call_result.parts[0])
             if (args.verbose):
                 print(f"-> {function_call_result.parts[0].function_response.response}")
+        messages.append(types.Content(role="user", parts=function_results))
     else:
         print(response.text)
+        return False
+    return True
 
 
 if __name__ == "__main__":
